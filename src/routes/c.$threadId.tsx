@@ -1,10 +1,12 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
+import type { UIMessage } from "ai";
 import { AppShell } from "@/components/chat/AppShell";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { useAuth } from "@/lib/auth";
 import { loadThreadMessages } from "@/lib/chat-store";
+import { loadGuestMessages, saveGuestMessages } from "@/lib/guest-store";
 import { takePendingMessage } from "@/lib/pending-message";
 
 export const Route = createFileRoute("/c/$threadId")({
@@ -29,21 +31,24 @@ export const Route = createFileRoute("/c/$threadId")({
 function ThreadPage() {
   const { threadId } = Route.useParams();
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
+  const guest = !user;
   const pending = useMemo(() => takePendingMessage(), [threadId]);
 
-  useEffect(() => {
-    if (!loading && !user) void navigate({ to: "/auth" });
-  }, [user, loading, navigate]);
-
   const messagesQuery = useQuery({
-    queryKey: ["messages", threadId],
-    queryFn: () => loadThreadMessages(threadId),
-    enabled: Boolean(user),
+    queryKey: ["messages", threadId, guest ? "guest" : "account"],
+    queryFn: async () => (guest ? loadGuestMessages(threadId) : await loadThreadMessages(threadId)),
+    enabled: !loading,
     staleTime: Infinity,
   });
 
-  if (loading || !user || messagesQuery.isLoading) {
+  const persistGuest = useCallback(
+    (messages: UIMessage[]) => {
+      if (messages.length) saveGuestMessages(threadId, messages);
+    },
+    [threadId],
+  );
+
+  if (loading || messagesQuery.isLoading) {
     return (
       <AppShell>
         <div className="flex flex-1 items-center justify-center">
@@ -60,6 +65,8 @@ function ThreadPage() {
         threadId={threadId}
         initialMessages={messagesQuery.data ?? []}
         autoSend={pending}
+        guest={guest}
+        {...(guest ? { onMessagesChange: persistGuest } : {})}
       />
     </AppShell>
   );
