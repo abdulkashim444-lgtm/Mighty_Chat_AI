@@ -33,6 +33,8 @@ type ChatBody = {
   threadId?: string;
 };
 
+const GUEST_MESSAGE_LIMIT = 5;
+
 function jsonError(message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
@@ -51,16 +53,14 @@ export const Route = createFileRoute("/api/chat")({
         if (!Array.isArray(messages) || messages.length === 0) {
           return jsonError("Messages are required", 400);
         }
-        if (!threadId) return jsonError("threadId is required", 400);
+        const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+        if (token && !threadId) return jsonError("threadId is required", 400);
 
         const lovableApiKey = process.env["LOVABLE_API_KEY"];
         const supabaseUrl = process.env["SUPABASE_URL"];
         const supabaseKey = process.env["SUPABASE_PUBLISHABLE_KEY"];
         if (!lovableApiKey) return jsonError("AI is not configured", 500);
         if (!supabaseUrl || !supabaseKey) return jsonError("Backend is not configured", 500);
-
-        const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
-        if (!token) return jsonError("Unauthorized", 401);
 
         const supabase = createClient(supabaseUrl, supabaseKey, {
           auth: { persistSession: false, autoRefreshToken: false },
@@ -74,23 +74,41 @@ export const Route = createFileRoute("/api/chat")({
           },
         });
 
-        const { data: userData } = await supabase.auth.getUser(token);
-        const userId = userData.user?.id;
-        if (!userId) return jsonError("Unauthorized", 401);
+        let userId: string | undefined;
+        if (token) {
+          const { data: userData } = await supabase.auth.getUser(token);
+          userId = userData.user?.id;
+          if (!userId) return jsonError("Unauthorized", 401);
+        }
 
-        const { data: thread, error: threadError } = await supabase
-          .from("threads")
-          .select("id,title")
-          .eq("id", threadId)
-          .maybeSingle();
-        if (threadError) return jsonError(threadError.message, 500);
-        if (!thread) return jsonError("Conversation not found", 404);
+        const guest = !userId;
+        if (guest) {
+          const userTurns = messages.filter((message) => message.role === "user").length;
+          if (userTurns > GUEST_MESSAGE_LIMIT) {
+            return jsonError(
+              "You have used all 5 free messages. Sign in to keep chatting.",
+              403,
+            );
+          }
+        }
+
+        let thread: { id: string; title: string } | null = null;
+        if (!guest) {
+          const { data: threadRow, error: threadError } = await supabase
+            .from("threads")
+            .select("id,title")
+            .eq("id", threadId!)
+            .maybeSingle();
+          if (threadError) return jsonError(threadError.message, 500);
+          if (!threadRow) return jsonError("Conversation not found", 404);
+          thread = threadRow as { id: string; title: string };
+        }
 
         const lastMessage = messages[messages.length - 1];
-        if (lastMessage?.role === "user") {
+        if (!guest && lastMessage?.role === "user") {
           const { error: insertError } = await supabase.from("messages").insert({
-            thread_id: threadId,
-            user_id: userId,
+            thread_id: threadId!,
+            user_id: userId!,
             role: "user",
             parts: lastMessage.parts,
             sdk_message_id: lastMessage.id,
@@ -106,11 +124,13 @@ export const Route = createFileRoute("/api/chat")({
           system: SYSTEM_PROMPT,
           messages: await convertToModelMessages(messages),
           stopWhen: stepCountIs(50),
-          tools: {
-            web_search: webSearchTool,
-            read_url: fetchUrlTool,
-            generate_image: createImageTool({ lovableApiKey, supabase, userId }),
-          },
+          tools: guest
+            ? { web_search: webSearchTool, read_url: fetchUrlTool }
+            : {
+                web_search: webSearchTool,
+                read_url: fetchUrlTool,
+                generate_image: createImageTool({ lovableApiKey, supabase, userId: userId! }),
+              },
           providerOptions: {
             lovable: { reasoning: { effort: "low" } },
           },
@@ -123,9 +143,10 @@ export const Route = createFileRoute("/api/chat")({
           originalMessages: messages,
           sendReasoning: true,
           onFinish: async ({ responseMessage }) => {
+            if (guest || !thread) return;
             const { error } = await supabase.from("messages").insert({
-              thread_id: threadId,
-              user_id: userId,
+              thread_id: threadId!,
+              user_id: userId!,
               role: responseMessage.role,
               parts: responseMessage.parts,
               sdk_message_id: responseMessage.id,
