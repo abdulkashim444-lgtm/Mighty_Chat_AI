@@ -33,8 +33,6 @@ type ChatBody = {
   threadId?: string;
 };
 
-const GUEST_MESSAGE_LIMIT = 5;
-
 function jsonError(message: string, status: number) {
   return new Response(JSON.stringify({ error: message }), {
     status,
@@ -82,15 +80,6 @@ export const Route = createFileRoute("/api/chat")({
         }
 
         const guest = !userId;
-        if (guest) {
-          const userTurns = messages.filter((message) => message.role === "user").length;
-          if (userTurns > GUEST_MESSAGE_LIMIT) {
-            return jsonError(
-              "You have used all 5 free messages. Sign in to keep chatting.",
-              403,
-            );
-          }
-        }
 
         let thread: { id: string; title: string } | null = null;
         if (!guest) {
