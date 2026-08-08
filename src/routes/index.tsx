@@ -46,8 +46,7 @@ function Index() {
 
   async function start(payload: { text: string; parts: UIMessage["parts"] }) {
     try {
-      const title = payload.text.slice(0, 60) || "New chat";
-      const thread = await createThread(title);
+      const thread = await createThread("New chat");
       setPendingMessage(payload);
       await navigate({ to: "/c/$threadId", params: { threadId: thread.id } });
     } catch (error) {
