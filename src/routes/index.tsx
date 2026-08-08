@@ -1,24 +1,62 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { toast } from "sonner";
+import type { UIMessage } from "ai";
+import { AppShell } from "@/components/chat/AppShell";
+import { ChatWindow } from "@/components/chat/ChatWindow";
+import { useAuth } from "@/lib/auth";
+import { createThread } from "@/lib/chat-store";
+import { setPendingMessage } from "@/lib/pending-message";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "Mighty Chat — AI assistant with search, images & reasoning" },
+      {
+        name: "description",
+        content:
+          "Start a new chat with Mighty Chat: live web search, image generation, file understanding and visible reasoning in one assistant.",
+      },
+      { property: "og:title", content: "Mighty Chat — AI assistant with search & images" },
+      {
+        property: "og:description",
+        content:
+          "A powerful AI chat assistant with live web search, image generation, file uploads and visible reasoning.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loading && !user) void navigate({ to: "/auth" });
+  }, [user, loading, navigate]);
+
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="size-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+      </div>
+    );
+  }
+
+  async function start(payload: { text: string; parts: UIMessage["parts"] }) {
+    try {
+      const thread = await createThread("New chat");
+      setPendingMessage(payload);
+      await navigate({ to: "/c/$threadId", params: { threadId: thread.id } });
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  }
+
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <AppShell>
+      <ChatWindow threadId={null} onFirstMessage={(payload) => void start(payload)} />
+    </AppShell>
   );
 }
