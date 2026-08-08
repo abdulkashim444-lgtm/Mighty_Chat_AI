@@ -37,7 +37,6 @@ import logo from "@/assets/logo.png";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { uploadAttachment, signedUrlFor } from "@/lib/chat-store";
-import { GUEST_MESSAGE_LIMIT, guestRemaining, recordGuestMessage } from "@/lib/guest";
 import { cn } from "@/lib/utils";
 
 type Attachment = { path: string; url: string; name: string; mediaType: string };
@@ -55,12 +54,14 @@ export function ChatWindow({
   onFirstMessage,
   autoSend,
   guest = false,
+  onMessagesChange,
 }: {
   threadId: string | null;
   initialMessages?: UIMessage[];
   onFirstMessage?: (payload: { text: string; parts: UIMessage["parts"] }) => void;
   autoSend?: { text: string; parts: UIMessage["parts"] } | null;
   guest?: boolean;
+  onMessagesChange?: (messages: UIMessage[]) => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -70,12 +71,6 @@ export function ChatWindow({
   const fileRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoSentRef = useRef(false);
-  const [remaining, setRemaining] = useState(GUEST_MESSAGE_LIMIT);
-
-  useEffect(() => {
-    if (guest) setRemaining(guestRemaining());
-  }, [guest]);
-
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
@@ -106,6 +101,11 @@ export function ChatWindow({
   });
 
   const busy = status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    if (!onMessagesChange || !threadId) return;
+    onMessagesChange(messages);
+  }, [messages, onMessagesChange, threadId]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -149,11 +149,6 @@ export function ChatWindow({
   function submit(text: string) {
     const trimmed = text.trim();
     if (!trimmed && attachments.length === 0) return;
-    if (guest && guestRemaining() <= 0) {
-      setRemaining(0);
-      toast.error("You have used all 5 free messages. Sign in to keep chatting.");
-      return;
-    }
     const parts: UIMessage["parts"] = [
       ...attachments.map((attachment) => ({
         type: "file" as const,
@@ -171,7 +166,6 @@ export function ChatWindow({
       onFirstMessage?.({ text: trimmed, parts });
       return;
     }
-    if (guest) setRemaining(recordGuestMessage());
     void sendMessage({ role: "user", parts });
   }
 
@@ -367,15 +361,6 @@ export function ChatWindow({
           </div>
         )}
 
-        {guest && remaining <= 0 && (
-          <div className="mb-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm">
-            You have used your 5 free messages.{" "}
-            <a href="/auth" className="font-medium text-primary hover:underline">
-              Sign in
-            </a>{" "}
-            to keep chatting, save history, attach files and generate images.
-          </div>
-        )}
 
         <PromptInput
           onSubmit={(_message, event) => {
@@ -416,15 +401,12 @@ export function ChatWindow({
               />
               <span className="hidden items-center gap-1 text-xs text-muted-foreground sm:inline-flex">
                 <Globe className="size-3.5" />{" "}
-                {guest ? `${remaining} of ${GUEST_MESSAGE_LIMIT} free messages left` : "web search & images enabled"}
+                {guest ? "unlimited chat · history saved on this device" : "web search & images enabled"}
               </span>
             </PromptInputTools>
             <PromptInputSubmit
               status={status}
-              disabled={
-                (guest && remaining <= 0) ||
-                (!input.trim() && attachments.length === 0 && !busy)
-              }
+              disabled={!input.trim() && attachments.length === 0 && !busy}
               onClick={busy ? () => void stop() : undefined}
             />
           </PromptInputFooter>
