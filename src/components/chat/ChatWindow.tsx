@@ -193,10 +193,7 @@ export function ChatWindow({
 
           {messages.map((message, messageIndex) => (
             <Message key={message.id} from={message.role}>
-              <MessageContent
-                variant={message.role === "user" ? "contained" : "flat"}
-                className={cn(message.role === "assistant" && "bg-transparent p-0")}
-              >
+              <MessageContent className={cn(message.role === "assistant" && "bg-transparent p-0")}>
                 {message.parts.map((part, partIndex) => {
                   const key = `${message.id}-${partIndex}`;
 
@@ -357,7 +354,7 @@ export function ChatWindow({
         )}
 
         <PromptInput
-          onSubmit={(event) => {
+          onSubmit={(_message, event) => {
             event.preventDefault();
             submit(input);
           }}
