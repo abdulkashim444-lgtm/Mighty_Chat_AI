@@ -118,8 +118,8 @@ export const Reasoning = memo(
         }, AUTO_CLOSE_DELAY);
 
         return () => clearTimeout(timer);
-        // eslint-disable-next-line no-unreachable
       }
+      return undefined;
     }, [isStreaming, isOpen, setIsOpen, hasAutoClosed]);
 
     const handleOpenChange = useCallback(
