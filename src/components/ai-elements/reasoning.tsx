@@ -72,7 +72,7 @@ export const Reasoning = memo(
 
     const [isOpen, setIsOpen] = useControllableState<boolean>({
       defaultProp: resolvedDefaultOpen,
-      onChange: onOpenChange,
+      onChange: onOpenChange ?? (() => {}),
       prop: open,
     });
     const [duration, setDuration] = useControllableState<number | undefined>({
@@ -118,6 +118,7 @@ export const Reasoning = memo(
         }, AUTO_CLOSE_DELAY);
 
         return () => clearTimeout(timer);
+        // eslint-disable-next-line no-unreachable
       }
     }, [isStreaming, isOpen, setIsOpen, hasAutoClosed]);
 
@@ -204,7 +205,9 @@ export type ReasoningContentProps = ComponentProps<
   children: string;
 };
 
-const streamdownPlugins = { cjk, code, math, mermaid };
+const streamdownPlugins = { cjk, code, math, mermaid } as unknown as ComponentProps<
+  typeof Streamdown
+>["plugins"];
 
 export const ReasoningContent = memo(
   ({ className, children, ...props }: ReasoningContentProps) => (
