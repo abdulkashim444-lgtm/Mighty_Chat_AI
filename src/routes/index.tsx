@@ -52,7 +52,7 @@ function Index() {
 
   return (
     <AppShell>
-      <ChatWindow threadId={null} onFirstMessage={(payload) => void start(payload)} />
+      <ChatWindow threadId={null} guest={!user} onFirstMessage={(payload) => void start(payload)} />
     </AppShell>
   );
 }
