@@ -27,6 +27,13 @@ import {
   setThreadPinned,
   type Thread,
 } from "@/lib/chat-store";
+import {
+  deleteGuestThread,
+  listGuestThreads,
+  renameGuestThread,
+  setGuestThreadArchived,
+  setGuestThreadPinned,
+} from "@/lib/guest-store";
 import { cn } from "@/lib/utils";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -74,21 +81,33 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
 
+  const guest = !user;
+
   const threadsQuery = useQuery({
-    queryKey: ["threads"],
-    queryFn: listThreads,
-    enabled: Boolean(user),
+    queryKey: ["threads", guest ? "guest" : "account"],
+    queryFn: async () => (guest ? listGuestThreads() : await listThreads()),
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["threads"] });
 
   const mutate = useMutation({
     mutationFn: async (action: { type: string; thread: Thread; title?: string }) => {
-      if (action.type === "pin") await setThreadPinned(action.thread.id, !action.thread.pinned);
-      if (action.type === "archive")
-        await setThreadArchived(action.thread.id, !action.thread.archived);
-      if (action.type === "delete") await deleteThread(action.thread.id);
-      if (action.type === "rename" && action.title) await renameThread(action.thread.id, action.title);
+      if (action.type === "pin") {
+        if (guest) setGuestThreadPinned(action.thread.id, !action.thread.pinned);
+        else await setThreadPinned(action.thread.id, !action.thread.pinned);
+      }
+      if (action.type === "archive") {
+        if (guest) setGuestThreadArchived(action.thread.id, !action.thread.archived);
+        else await setThreadArchived(action.thread.id, !action.thread.archived);
+      }
+      if (action.type === "delete") {
+        if (guest) deleteGuestThread(action.thread.id);
+        else await deleteThread(action.thread.id);
+      }
+      if (action.type === "rename" && action.title) {
+        if (guest) renameGuestThread(action.thread.id, action.title);
+        else await renameThread(action.thread.id, action.title);
+      }
       return action;
     },
     onSuccess: async (action) => {
@@ -250,6 +269,16 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
       </div>
 
       <div className="border-t border-sidebar-border p-3">
+        {guest ? (
+          <div className="space-y-2">
+            <p className="px-1 text-[11px] text-muted-foreground">
+              Guest mode — chats are saved in this browser only.
+            </p>
+            <Button asChild variant="outline" size="sm" className="w-full">
+              <Link to="/auth">Sign in to sync & upload files</Link>
+            </Button>
+          </div>
+        ) : (
         <div className="flex items-center gap-2">
           <div className="bg-brand-gradient flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-primary-foreground">
             {(user?.email ?? "?").slice(0, 1).toUpperCase()}
@@ -261,6 +290,7 @@ function Sidebar({ onNavigate }: { onNavigate: () => void }) {
             <LogOut className="size-4" />
           </Button>
         </div>
+        )}
       </div>
     </aside>
   );
