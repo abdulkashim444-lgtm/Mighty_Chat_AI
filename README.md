@@ -5,6 +5,7 @@
 Mighty Chat is a next-generation AI assistant platform designed for intelligent conversations, real-time web search, AI image generation, file understanding, and productivity. Built with React, TypeScript, TanStack Start, and modern AI technologies, it provides a powerful ChatGPT-inspired workspace for research, creativity, coding, learning, and everyday AI assistance.
 
 ---
+
 <img width="1917" height="927" alt="Image" src="https://github.com/user-attachments/assets/e89af9fb-dba2-475a-a96b-b3dae5ebf271" />
 
 # ✨ Features
@@ -159,4 +160,4 @@ Mighty Chat brings search, research, creativity, coding, and AI assistance into 
 
 ## Check out : 
 
-   
+   https://mighty-chat.lovable.app/
