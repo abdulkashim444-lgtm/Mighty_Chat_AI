@@ -6,7 +6,9 @@ Mighty Chat is a next-generation AI assistant platform designed for intelligent 
 
 ---
 
+
 <img width="1917" height="927" alt="Image" src="https://github.com/user-attachments/assets/e89af9fb-dba2-475a-a96b-b3dae5ebf271" />
+
 
 # ✨ Features
 
@@ -156,8 +158,10 @@ Mighty Chat is a next-generation AI assistant platform designed for intelligent 
 
 ## 🌟 Vision
 
+
 Mighty Chat brings search, research, creativity, coding, and AI assistance into one unified workspace. By combining conversational AI, real-time web intelligence, image generation, file understanding, visible reasoning, and persistent conversations, the platform demonstrates modern AI application engineering and provides a powerful foundation for next-generation productivity tools.
 
 ## Check out : 
 
    https://mighty-chat.lovable.app/
+
